@@ -31,6 +31,7 @@ sequential HTTP round-trip bottleneck.
 from __future__ import annotations
 
 import re
+import sys
 import urllib.error
 import urllib.request
 import json
@@ -38,6 +39,8 @@ import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
+
+from tqdm import tqdm
 
 from tekton_scraper.collectors.config import PipelineConfig
 
@@ -239,15 +242,24 @@ def analyze_stages_from_api(
             ): run
             for run in failed_runs
         }
-        for future in as_completed(future_to_run):
-            run = future_to_run[future]
-            run_id = run.get("id") or run.get("run_id", "")
-            try:
-                stages = future.result()
-            except Exception as exc:
-                logger.debug("Unexpected error for run %s: %s", run_id, exc)
-                stages = []
-            raw_results[run_id] = stages
+        with tqdm(
+            total=len(failed_runs),
+            desc="  Stage logs",
+            unit="run",
+            file=sys.stderr,
+            dynamic_ncols=True,
+            leave=False,
+        ) as pbar:
+            for future in as_completed(future_to_run):
+                run = future_to_run[future]
+                run_id = run.get("id") or run.get("run_id", "")
+                try:
+                    stages = future.result()
+                except Exception as exc:
+                    logger.debug("Unexpected error for run %s: %s", run_id, exc)
+                    stages = []
+                raw_results[run_id] = stages
+                pbar.update(1)
 
     # Aggregate stats in original run order
     stage_stats: dict[str, dict] = defaultdict(

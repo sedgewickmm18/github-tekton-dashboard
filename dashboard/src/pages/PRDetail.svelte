@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import { timeWindow } from '../stores.js'
+  import { timeWindow, selectedPRNumber } from '../stores.js'
   import { Chart, registerables } from 'chart.js'
   Chart.register(...registerables)
 
@@ -22,6 +22,13 @@
     error = null
     try {
       prList = await invoke('get_pr_list', { days: $timeWindow }) || []
+      // Auto-select a PR if one was set via the Overview charts
+      const jumpTo = $selectedPRNumber
+      if (jumpTo) {
+        selectedPRNumber.set(null)
+        const target = prList.find(p => p.pr_number === jumpTo)
+        if (target) selectPR(target)
+      }
     } catch (e) {
       error = String(e)
     } finally {

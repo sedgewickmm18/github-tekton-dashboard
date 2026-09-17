@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import { timeWindow, currentPage, stageFilter } from '../stores.js'
+  import { timeWindow, currentPage, stageFilter, selectedPRNumber } from '../stores.js'
   import { Chart, registerables } from 'chart.js'
   Chart.register(...registerables)
 
@@ -51,6 +51,29 @@
   function fmtStage(name) {
     if (!name) return name
     return name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
+
+  // Human-readable stage descriptions for pie chart tooltips
+  const STAGE_DESCRIPTIONS = {
+    'pr-start':            'Pipeline initialisation — workspace setup, cloning, baseline checks',
+    'pr-code-checks':      'Static analysis, linting, secret scanning, CRA compliance checks',
+    'pr-code-build':       'Compile, unit tests, image build, artifact signing & scan',
+    'pr-deploy-checks':    'Deploy to test environment and run integration / smoke tests',
+    'finish':              'DevSecOps finish stage — evaluates compliance gates and sets PR status',
+  }
+  function stageDesc(rawName) {
+    if (!rawName) return ''
+    const lower = rawName.toLowerCase()
+    for (const [key, desc] of Object.entries(STAGE_DESCRIPTIONS)) {
+      if (lower === key || lower.endsWith('-' + key)) return desc
+    }
+    return fmtStage(rawName) + ' pipeline stage'
+  }
+
+  // Navigate to the PRs page and pre-select a PR number
+  function goToPR(prNumber) {
+    selectedPRNumber.set(Number(prNumber))
+    currentPage.set('prs')
   }
 
   // ── load ─────────────────────────────────────────────────────────────────────
@@ -113,7 +136,8 @@
                 const t = ctx.dataset.data.reduce((a, b) => a + b, 0)
                 const pct = t > 0 ? (ctx.parsed / t * 100).toFixed(1) : 0
                 return `${ctx.label.split(' (')[0]}: ${ctx.parsed} builds (${pct}%)`
-              }
+              },
+              afterLabel: ctx => stageDesc(stageData[ctx.dataIndex]?.stage_name)
             }}
           },
           onClick: (_, elements) => {
@@ -178,7 +202,10 @@
             x: { beginAtZero: true,
               title: { display: true, text: 'Number of Pipeline Triggers', color: '#666' },
               ticks: { color: '#666' }, grid: { color: 'rgba(0,0,0,0.05)' } },
-            y: { ticks: { color: '#666' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+            y: { ticks: { color: '#666', cursor: 'pointer' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          },
+          onClick: (_, elements) => {
+            if (elements.length) goToPR(prData[elements[0].index].pr_number)
           }
         }
       })
@@ -207,7 +234,10 @@
             x: { beginAtZero: true,
               title: { display: true, text: 'Number of Reruns Without Code Changes', color: '#666' },
               ticks: { color: '#666', stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
-            y: { ticks: { color: '#666' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+            y: { ticks: { color: '#666', cursor: 'pointer' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          },
+          onClick: (_, elements) => {
+            if (elements.length) goToPR(rerunSorted[elements[0].index].pr_number)
           }
         }
       })
@@ -248,7 +278,10 @@
             x: { beginAtZero: true,
               title: { display: true, text: 'Duration (hours)', color: '#666' },
               ticks: { color: '#666' }, grid: { color: 'rgba(0,0,0,0.05)' } },
-            y: { ticks: { color: '#666' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+            y: { ticks: { color: '#666', cursor: 'pointer' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          },
+          onClick: (_, elements) => {
+            if (elements.length) goToPR(openSorted[elements[0].index].pr_number)
           }
         }
       })

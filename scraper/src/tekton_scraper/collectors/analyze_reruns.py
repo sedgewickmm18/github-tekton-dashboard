@@ -121,14 +121,21 @@ def analyze_reruns(
         merge_reruns = 0
         rerun_details: list[dict] = []
         prev_sha: Optional[str] = None
+        # prev_run_id tracks the last run whose SHA was successfully extracted.
+        # This ensures merge-commit reruns can still reference a valid previous
+        # run even when some intermediate runs had no SHA in their event params.
         prev_run_id: Optional[str] = None
 
         for run in pr_runs:
             sha = _extract_head_sha(run.get("event_params_blob", ""))
+            run_id = run.get("id")
             if not sha:
+                # No SHA — count it as a run but don't update prev_sha.
+                # prev_run_id advances so downstream reruns can still link back.
+                if run_id:
+                    prev_run_id = run_id
                 continue
             dur = _calculate_duration(run.get("created_at", ""), run.get("updated_at", ""))
-            run_id = run.get("id")
 
             if prev_sha and sha == prev_sha:
                 sha_reruns += 1

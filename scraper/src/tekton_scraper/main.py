@@ -12,6 +12,8 @@ import logging.handlers
 import sys
 from pathlib import Path
 
+from tqdm import tqdm
+
 from tekton_scraper.collectors.config import PipelineConfig
 from tekton_scraper.collectors.fetch_runs import fetch_runs
 from tekton_scraper.collectors.analyze_runs import analyze_runs
@@ -46,6 +48,18 @@ def _setup_logging(level: int = logging.INFO) -> None:
     logging.root.setLevel(level)
 
 
+# Steps shown in the terminal progress bar
+_STEPS = [
+    "schema migration",
+    "fetch runs",
+    "upsert pipeline/PRs/runs",
+    "rerun analysis",
+    "error analysis",
+    "stage analysis",
+    "save metadata",
+]
+
+
 def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
     """
     Full scrape-and-store pipeline.
@@ -59,13 +73,29 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
     """
     logger.info("Starting scrape: last %d days", days)
 
+    bar = tqdm(
+        total=len(_STEPS),
+        desc="Scraping",
+        unit="step",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
+        file=sys.stderr,
+        dynamic_ncols=True,
+    )
+
+    def _step(name: str) -> None:
+        bar.set_postfix_str(name)
+        bar.update(1)
+
     # Ensure schema indexes exist
+    bar.set_postfix_str("schema migration")
     migrate()
+    _step("fetch runs")
 
     # 1. Fetch raw runs (token is returned so we can reuse it for stage analysis)
     logger.info("Fetching pipeline runs…")
     raw_runs, iam_token = fetch_runs(config, days=days)
     logger.info("Fetched %d runs", len(raw_runs))
+    _step("upsert pipeline/PRs/runs")
 
     # 2. Ensure pipeline node exists
     upsert_pipeline(
@@ -80,10 +110,11 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
     pr_analysis = analyze_runs(raw_runs)
 
     # Flatten runs for writer — attach pr_number + author
+    import json as _json
+    from datetime import datetime
     flat_runs = []
     for pr in pr_analysis:
         for run in pr["runs"]:
-            from datetime import datetime
             created = run.get("created_at", "")
             updated = run.get("updated_at", "")
             try:
@@ -93,7 +124,6 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
                 ).total_seconds()
             except Exception:
                 dur = 0.0
-            import json as _json
             sha = None
             try:
                 ep = _json.loads(run.get("event_params_blob", "{}"))
@@ -127,9 +157,9 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
     ]
     logger.info("Upserting %d PRs…", len(pr_nodes))
     upsert_prs(pr_nodes)
-
     logger.info("Upserting %d runs…", len(flat_runs))
     upsert_runs(config.pipeline_id, flat_runs)
+    _step("rerun analysis")
 
     # 4. Rerun analysis
     logger.info("Analyzing reruns…")
@@ -151,6 +181,7 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
                 )
     if rerun_pairs:
         upsert_reruns(rerun_pairs)
+    _step("error analysis")
 
     # 5. Error type analysis (requires local logs)
     logger.info("Analyzing error types from logs…")
@@ -167,6 +198,7 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
                             run_error_items.append({"run_id": run_id, "error_type": etype})
     if run_error_items:
         upsert_errors(run_error_items)
+    _step("stage analysis")
 
     # 6. Stage analysis
     # Primary: query the IBM Cloud /logs API (no local files needed).
@@ -210,9 +242,12 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
             )
     if run_stage_items:
         upsert_stages(run_stage_items)
+    _step("save metadata")
 
     # 7. Record scrape metadata
     import datetime
+    bar.set_postfix_str("done")
+    bar.close()
     ts = datetime.datetime.utcnow().isoformat() + "Z"
     if active_backend() == "falkordb":
         get_graph().query(

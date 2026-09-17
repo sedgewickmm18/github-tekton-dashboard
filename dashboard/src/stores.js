@@ -8,3 +8,6 @@ export const currentPage = writable('overview')
 
 /** Active stage filter (set from Overview pie chart click) */
 export const stageFilter = writable(null)
+
+/** PR number to pre-select when navigating to the PRs page */
+export const selectedPRNumber = writable(null)
