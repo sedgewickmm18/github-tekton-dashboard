@@ -100,7 +100,7 @@ IBM_CLOUD_API_KEY=<your-api-key>
 PIPELINE_ID=<tekton-pipeline-uuid>
 REGION=us-south
 TRIGGER_NAME=pr-trigger
-GITHUB_TOKEN=<optional-github-token>   # enables merge-commit rerun detection
+REPO_GITHUB_TOKEN=<optional-github-token>   # (or GITHUB_TOKEN / GH_TOKEN) enables merge-commit rerun detection
 PIPELINE_URL=<ibm-cloud-console-url>   # optional — quick link in Settings tab
 GITHUB_REPO_URL=<github-repo-url>      # optional — quick link in Settings tab
 ```
@@ -193,7 +193,7 @@ In addition to the Tauri desktop app, a fully static Single Page Application (SP
    - `PIPELINE_ID`: Tekton pipeline UUID *(Required)*
    - `REGION`: IBM Cloud region (e.g., `us-south`) *(Optional, defaults to us-south)*
    - `TRIGGER_NAME`: Tekton trigger name *(Optional, defaults to pr-trigger)*
-   - `REPO_GITHUB_TOKEN`: GitHub PAT for commit comparisons *(Optional)*
+   - `REPO_GITHUB_TOKEN`: GitHub Personal Access Token for commit comparisons *(Optional; note that GitHub disallows creating custom secrets starting with `GITHUB_`, so use `REPO_GITHUB_TOKEN` or `GH_TOKEN`)*
    - `PIPELINE_URL`: Direct link to IBM Cloud console pipeline *(Optional)*
    - `GITHUB_REPO_URL`: URL to your GitHub repository *(Optional)*
 3. Go to **Settings > Pages**:

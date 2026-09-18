@@ -43,7 +43,16 @@ class PipelineConfig:
             pipeline_id=os.environ.get("PIPELINE_ID") or env.get("PIPELINE_ID", ""),
             region=os.environ.get("REGION") or env.get("REGION", ""),
             trigger_name=os.environ.get("TRIGGER_NAME") or env.get("TRIGGER_NAME", ""),
-            github_token=os.environ.get("GITHUB_TOKEN") or env.get("GITHUB_TOKEN"),
+            github_token=(
+                os.environ.get("GH_TOKEN")
+                or os.environ.get("REPO_GITHUB_TOKEN")
+                or os.environ.get("GITHUB_PAT")
+                or os.environ.get("GITHUB_TOKEN")
+                or env.get("GH_TOKEN")
+                or env.get("REPO_GITHUB_TOKEN")
+                or env.get("GITHUB_PAT")
+                or env.get("GITHUB_TOKEN")
+            ),
             logs_base_dir=os.environ.get("LOGS_BASE_DIR") or env.get("LOGS_BASE_DIR", default_logs),
             pipeline_url=os.environ.get("PIPELINE_URL") or env.get("PIPELINE_URL", ""),
             github_repo_url=os.environ.get("GITHUB_REPO_URL") or env.get("GITHUB_REPO_URL", ""),
