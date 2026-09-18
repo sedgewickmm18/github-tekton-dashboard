@@ -1,4 +1,4 @@
-.PHONY: scrape dev build clean
+.PHONY: scrape dev build clean web-spa-dev web-spa-build web-spa-preview web-spa-install test-gha test-web-spa test-gha-mock test-gha-preview
 
 DAYS ?= 90
 
@@ -34,5 +34,35 @@ cleanup:
 cleanup-all:
 	cd scraper && uv run python cleanup_pipeline.py --all
 
+## Install dependencies for static web SPA
+web-spa-install:
+	cd web-spa && npm install
+
+## Run static web SPA in development mode
+web-spa-dev:
+	cd web-spa && npm run dev
+
+## Build static web SPA for GitHub Pages
+web-spa-build:
+	cd web-spa && npm run build
+
+## Preview static web SPA production build
+web-spa-preview:
+	cd web-spa && npm run preview
+
+## Test GitHub Actions workflow simulation (scrapes or uses mock, builds, validates dist)
+test-gha:
+	./scripts/test-gha-workflow.sh
+
+test-web-spa: test-gha
+
+## Test GitHub Actions workflow using synthetic mock data
+test-gha-mock:
+	./scripts/test-gha-workflow.sh --mock
+
+## Test GitHub Actions workflow and open preview server
+test-gha-preview:
+	./scripts/test-gha-workflow.sh --preview
+
 clean:
-	rm -rf dashboard/dist dashboard/src-tauri/target scraper/logs/*.log
+	rm -rf dashboard/dist dashboard/src-tauri/target web-spa/dist scraper/logs/*.log

@@ -16,6 +16,9 @@ scraper/          Python uv project — fetches IBM Cloud Tekton data, writes to
 dashboard/        Tauri v2 desktop app
   src/            Svelte frontend (App, stores, pages)
   src-tauri/      Rust backend — Tauri commands backed by FalkorDB or SQLite
+
+web-spa/          Static SPA for GitHub Pages (no Tauri dependency)
+  src/            Svelte frontend + sql.js (WebAssembly SQLite loader)
 ```
 
 ## Storage backends
@@ -97,7 +100,9 @@ IBM_CLOUD_API_KEY=<your-api-key>
 PIPELINE_ID=<tekton-pipeline-uuid>
 REGION=us-south
 TRIGGER_NAME=pr-trigger
-GITHUB_TOKEN=<optional-github-token>  # enables merge-commit rerun detection
+GITHUB_TOKEN=<optional-github-token>   # enables merge-commit rerun detection
+PIPELINE_URL=<ibm-cloud-console-url>   # optional — quick link in Settings tab
+GITHUB_REPO_URL=<github-repo-url>      # optional — quick link in Settings tab
 ```
 
 ### 3. Install frontend dependencies
@@ -167,7 +172,79 @@ applies the correct deletion strategy.
 | **Errors** | Horizontal bar (% builds per error type) + detail grid cards |
 | **Stages** | Stage failure pie + sortable table; click pie slice to filter |
 | **Reruns** | Compute loss tile + dev productivity loss tile + per-PR table |
-| **Settings** | Pipeline config reference + manual scraper trigger + last-scrape metadata |
+| **Settings** | Pipeline config reference + manual scraper trigger + last-scrape metadata *(desktop only)* |
+
+## GitHub Pages Web Dashboard
+
+In addition to the Tauri desktop app, a fully static Single Page Application (SPA) variant is provided in `web-spa/` and can be hosted directly on **GitHub Pages**.
+
+### How it works
+1. A GitHub Actions workflow (`.github/workflows/pages.yml`) runs on a schedule (daily at 06:00 UTC) or on push / manual trigger.
+2. The workflow executes the Python scraper in SQLite mode, outputting a fresh `dashboard.db` to `web-spa/public/dashboard.db`.
+3. The Svelte web app builds using Vite, bundling `sql.js` (WebAssembly SQLite engine).
+4. When users visit the GitHub Pages URL, the browser downloads `dashboard.db` and queries it client-side with zero backend server required.
+5. Note: The **Settings** tab (and manual scraper trigger) is omitted in the static web version; scraping is handled automatically by GitHub Actions.
+
+### Setup GitHub Pages deployment
+
+1. In your GitHub repository, go to **Settings > Secrets and variables > Actions**.
+2. Add the following repository secrets (matching your `pipeline.env` configuration):
+   - `IBM_CLOUD_API_KEY`: Your IBM Cloud API key *(Required)*
+   - `PIPELINE_ID`: Tekton pipeline UUID *(Required)*
+   - `REGION`: IBM Cloud region (e.g., `us-south`) *(Optional, defaults to us-south)*
+   - `TRIGGER_NAME`: Tekton trigger name *(Optional, defaults to pr-trigger)*
+   - `REPO_GITHUB_TOKEN`: GitHub PAT for commit comparisons *(Optional)*
+   - `PIPELINE_URL`: Direct link to IBM Cloud console pipeline *(Optional)*
+   - `GITHUB_REPO_URL`: URL to your GitHub repository *(Optional)*
+3. Go to **Settings > Pages**:
+   - Under **Build and deployment > Source**, select **GitHub Actions**.
+4. Trigger the workflow manually from the **Actions** tab or push a commit to `main`.
+5. Your dashboard will be live at `https://<username>.github.io/<repo-name>/`.
+
+### Local Web SPA development
+
+```bash
+# Install dependencies
+make web-spa-install
+
+# Copy an existing SQLite database for local testing
+cp ~/.tekton-dashboard.db web-spa/public/dashboard.db
+
+# Start Vite dev server
+make web-spa-dev
+
+# Build static bundle for production
+make web-spa-build
+
+# Preview built production bundle
+make web-spa-preview
+```
+
+### Local GitHub Actions Workflow Simulation & Test Procedure
+
+You can test the entire GitHub Actions build and deployment pipeline locally using [`scripts/test-gha-workflow.sh`](scripts/test-gha-workflow.sh:1) or the Makefile targets.
+
+The test procedure executes:
+1. **Runner checks:** Asserts required tools (`uv`, `python3`, `node`, `npm`) are installed.
+2. **Scraping step:** Runs the scraper in SQLite mode writing to `web-spa/public/dashboard.db` (auto-detects credentials in `pipeline.env` or seeds a synthetic database).
+3. **Build step:** Installs dependencies and executes `npm run build` with Vite inside `web-spa/`.
+4. **Artifact validation:** Asserts required production artifacts are present and non-empty in `web-spa/dist/` (`index.html`, `dashboard.db`, `sql-wasm.wasm`).
+5. **Optional Preview:** Automatically runs Vite preview on localhost.
+
+```bash
+# Run full simulation (uses live credentials if available, otherwise synthetic mock data)
+make test-gha
+
+# Run simulation explicitly using synthetic mock test fixtures
+make test-gha-mock
+
+# Run simulation and launch preview server in browser
+make test-gha-preview
+
+# Or run the script directly with options
+./scripts/test-gha-workflow.sh --help
+./scripts/test-gha-workflow.sh --mock --preview
+```
 
 ### Stage failure attribution
 

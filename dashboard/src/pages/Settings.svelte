@@ -98,6 +98,24 @@
       <pre class="output">{runOutput}</pre>
     {/if}
   </section>
+
+  {#if meta?.pipeline_url || meta?.github_repo_url}
+  <section class="card">
+    <h2>Quick Links</h2>
+    <div class="links">
+      {#if meta.pipeline_url}
+        <a href={meta.pipeline_url} target="_blank" rel="noopener noreferrer" class="link-btn">
+          🚀 Open Tekton Pipeline
+        </a>
+      {/if}
+      {#if meta.github_repo_url}
+        <a href={meta.github_repo_url} target="_blank" rel="noopener noreferrer" class="link-btn">
+          🐙 Open GitHub Repository
+        </a>
+      {/if}
+    </div>
+  </section>
+  {/if}
 </div>
 
 <style>
@@ -143,4 +161,14 @@
     white-space: pre-wrap; max-height: 300px; overflow-y: auto;
     margin-top: 0.8rem;
   }
+  .links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+  .link-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: #0f172a; border: 1px solid #334155;
+    color: #38bdf8; border-radius: 6px;
+    padding: 0.45rem 1rem; font-size: 0.88rem; font-weight: 500;
+    text-decoration: none; transition: border-color 0.15s, color 0.15s;
+  }
+  .link-btn:hover { border-color: #38bdf8; color: #e2e8f0; }
 </style>

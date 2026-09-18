@@ -259,7 +259,11 @@ def run_pipeline(config: PipelineConfig, days: int = 30) -> dict:
         )
     else:
         from tekton_scraper.db.sqlite_backend import upsert_scrape_meta
-        upsert_scrape_meta(ts, len(flat_runs), days)
+        upsert_scrape_meta(
+            ts, len(flat_runs), days,
+            pipeline_url=config.pipeline_url,
+            github_repo_url=config.github_repo_url,
+        )
 
     summary = {
         "runs_fetched": len(raw_runs),

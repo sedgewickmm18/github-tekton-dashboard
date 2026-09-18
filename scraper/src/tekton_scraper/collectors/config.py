@@ -29,6 +29,8 @@ class PipelineConfig:
     trigger_name: str
     github_token: Optional[str] = None
     logs_base_dir: str = ""  # set by from_env_file; empty means "skip log analysis"
+    pipeline_url: str = ""
+    github_repo_url: str = ""
 
     @classmethod
     def from_env_file(cls, path: str | Path = "pipeline.env") -> "PipelineConfig":
@@ -43,6 +45,8 @@ class PipelineConfig:
             trigger_name=os.environ.get("TRIGGER_NAME") or env.get("TRIGGER_NAME", ""),
             github_token=os.environ.get("GITHUB_TOKEN") or env.get("GITHUB_TOKEN"),
             logs_base_dir=os.environ.get("LOGS_BASE_DIR") or env.get("LOGS_BASE_DIR", default_logs),
+            pipeline_url=os.environ.get("PIPELINE_URL") or env.get("PIPELINE_URL", ""),
+            github_repo_url=os.environ.get("GITHUB_REPO_URL") or env.get("GITHUB_REPO_URL", ""),
         )
 
     def is_valid(self) -> bool:

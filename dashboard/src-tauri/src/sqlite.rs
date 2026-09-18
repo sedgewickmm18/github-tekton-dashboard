@@ -219,9 +219,12 @@ pub fn get_pr_open_times(cutoff: &str) -> Result<Value, String> {
 
 pub fn get_scrape_meta() -> Result<Value, String> {
     let con = open().map_err(|e| e.to_string())?;
-    let cols = &["last_scraped_at", "run_count", "days"];
+    let cols = &["last_scraped_at", "run_count", "days", "pipeline_url", "github_repo_url"];
     let mut stmt = con
-        .prepare("SELECT last_scraped_at, run_count, days FROM scrape_meta WHERE key='latest'")
+        .prepare(
+            "SELECT last_scraped_at, run_count, days, pipeline_url, github_repo_url \
+             FROM scrape_meta WHERE key='latest'"
+        )
         .map_err(|e| e.to_string())?;
     let rows: Vec<Value> = stmt
         .query_map([], |row| Ok(row_to_json(row, cols)))

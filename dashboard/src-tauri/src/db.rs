@@ -286,7 +286,7 @@ pub fn get_pr_open_times(days: u32) -> Result<Value, String> {
 #[tauri::command]
 pub fn get_scrape_meta() -> Result<Value, String> {
     if active_backend() == Backend::FalkorDB {
-        cypher_ro("MATCH (m:ScrapeMeta {key:'latest'}) RETURN m.last_scraped_at AS last_scraped_at, m.run_count AS run_count, m.days AS days")
+        cypher_ro("MATCH (m:ScrapeMeta {key:'latest'}) RETURN m.last_scraped_at AS last_scraped_at, m.run_count AS run_count, m.days AS days, m.pipeline_url AS pipeline_url, m.github_repo_url AS github_repo_url")
     } else {
         crate::sqlite::get_scrape_meta()
     }

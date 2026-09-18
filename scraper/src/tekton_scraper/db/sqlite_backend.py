@@ -114,15 +114,26 @@ CREATE TABLE IF NOT EXISTS scrape_meta (
     key              TEXT PRIMARY KEY,
     last_scraped_at  TEXT,
     run_count        INTEGER,
-    days             INTEGER
+    days             INTEGER,
+    pipeline_url     TEXT,
+    github_repo_url  TEXT
 );
 """
 
 
 def migrate() -> None:
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist, and add new columns to existing ones."""
     with _cursor() as cur:
         cur.executescript(_SCHEMA_SQL)
+        # Add columns introduced after the initial schema — safe to run repeatedly.
+        for stmt in [
+            "ALTER TABLE scrape_meta ADD COLUMN pipeline_url TEXT",
+            "ALTER TABLE scrape_meta ADD COLUMN github_repo_url TEXT",
+        ]:
+            try:
+                cur.execute(stmt)
+            except Exception:
+                pass  # column already exists
     logger.info("SQLite migration complete: %s", db_path())
 
 
@@ -213,18 +224,27 @@ def upsert_reruns(rerun_pairs: list[dict[str, Any]]) -> None:
         )
 
 
-def upsert_scrape_meta(last_scraped_at: str, run_count: int, days: int) -> None:
+def upsert_scrape_meta(
+    last_scraped_at: str,
+    run_count: int,
+    days: int,
+    pipeline_url: str = "",
+    github_repo_url: str = "",
+) -> None:
     with _cursor() as cur:
         cur.execute(
             """
-            INSERT INTO scrape_meta(key, last_scraped_at, run_count, days)
-            VALUES('latest',?,?,?)
+            INSERT INTO scrape_meta(key, last_scraped_at, run_count, days,
+                                    pipeline_url, github_repo_url)
+            VALUES('latest',?,?,?,?,?)
             ON CONFLICT(key) DO UPDATE SET
                 last_scraped_at=excluded.last_scraped_at,
                 run_count=excluded.run_count,
-                days=excluded.days
+                days=excluded.days,
+                pipeline_url=excluded.pipeline_url,
+                github_repo_url=excluded.github_repo_url
             """,
-            (last_scraped_at, run_count, days),
+            (last_scraped_at, run_count, days, pipeline_url, github_repo_url),
         )
 
 
@@ -376,6 +396,8 @@ def query_pr_open_times(cutoff: str) -> list[dict[str, Any]]:
 def query_scrape_meta() -> list[dict[str, Any]]:
     with _cursor() as cur:
         cur.execute(
-            "SELECT last_scraped_at, run_count, days FROM scrape_meta WHERE key='latest'"
+            """SELECT last_scraped_at, run_count, days,
+                      pipeline_url, github_repo_url
+               FROM scrape_meta WHERE key='latest'"""
         )
         return _rows_as_dicts(cur)
